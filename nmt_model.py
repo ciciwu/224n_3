@@ -165,20 +165,23 @@ class NMT(nn.Module):
         ###     Tensor Permute:
         ###         https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute
 
-
+# 20,5,3
         X = self.model_embeddings.source(source_padded)
 
         pack_padded = torch.nn.utils.rnn.pack_padded_sequence(X, source_lengths, batch_first=False, enforce_sorted=True)
 
-        # enc_hidden = [src len, batch size, hid dim * n directions]
+        # enc_hiddens = [ batch size,src_len, hid dim * n directions]
+        # enc_hiddens 5 ,20 ,6
         # last_hidden = [n layers * n directions, batch size, hid dim]
+        # last_hidden 2,5,3
         # last_cell = [n layers * n directions, batch size, hid dim]
+        # last_cell = 2,5,3
         enc_hiddens_packed,(last_hidden,last_cell) = self.encoder(pack_padded)
         enc_hiddens, lens_unpacked = torch.nn.utils.rnn.pad_packed_sequence(enc_hiddens_packed,batch_first=True)
 
-        last_hidden_cat = torch.cat([last_hidden[1], last_hidden[0]], 1)
+        last_hidden_cat = torch.cat([last_hidden[0], last_hidden[1]], 1)
         init_decoder_hidden = self.h_projection(last_hidden_cat)
-        last_cell_cat = torch.cat([last_cell[1],last_cell[0]],1)
+        last_cell_cat = torch.cat([last_cell[0],last_cell[1]],1)
         init_decoder_cell = self.c_projection(last_cell_cat)
         dec_init_state = (init_decoder_hidden, init_decoder_cell)
 
@@ -319,6 +322,9 @@ class NMT(nn.Module):
         ###     Tensor Squeeze:
         ###         https://pytorch.org/docs/stable/torch.html#torch.squeeze
 
+        # e_t [5,20]
+        # dec_hidden [5,3]
+        # dec_cell [5,3 ]
         dec_state = self.decoder(Ybar_t, dec_state)
         (dec_hidden, dec_cell) = dec_state
 
@@ -358,12 +364,23 @@ class NMT(nn.Module):
         ###     Tanh:
         ###         https://pytorch.org/docs/stable/torch.html#torch.tanh
         sm = nn.Softmax()
-        alpha_t = sm(e_t)
-        a_t = torch.bmm(torch.unsqueeze(alpha_t,1),enc_hiddens)
-        a_t = torch.squeeze(a_t)
 
+        # alpha_t = sm(e_t)
+        # a_t = torch.bmm(torch.unsqueeze(alpha_t,1),enc_hiddens)
+        # a_t = torch.squeeze(a_t)
 
-        U_t = torch.cat([a_t,dec_hidden],1)
+# alpha_t 5,20
+# alpha_t_view 5,1,20
+# a_t = 5,6
+        alpha_t = F.softmax(e_t, dim=-1)
+        alpha_t_view = (alpha_t.size(0), 1, alpha_t.size(1))
+        a_t = torch.bmm(alpha_t.view(*alpha_t_view), enc_hiddens).squeeze(1)
+
+# U_t 5,8
+# V_t 5,3
+# O_t 5,3
+        #U_t = torch.cat([a_t,dec_hidden],1)
+        U_t = torch.cat([dec_hidden, a_t], 1)
         V_t = self.combined_output_projection(U_t)
         O_t = self.dropout(torch.tanh(V_t))
 
