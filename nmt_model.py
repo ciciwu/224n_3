@@ -256,11 +256,14 @@ class NMT(nn.Module):
 
         enc_hiddens_proj = self.att_projection(enc_hiddens)
         target_embedded = self.model_embeddings.target(target_padded)
-
-        for i in range(target_embedded.shape[0]):
-            Yt = torch.squeeze(target_embedded[i],0)
-            Ybar_t = torch.cat([Yt,o_prev],1)
-            dec_state,o_t,et = self.step( Ybar_t,dec_state,enc_hiddens,enc_hiddens_proj, enc_masks)
+        tgt_len = target_padded.shape[0]
+        #for i in range(target_embedded.shape[0]):
+            #Yt = torch.squeeze(target_embedded[i],0)
+        #for e in [torch.split(target_embedded,tgt_len)]:
+        for e in target_embedded.split(1):
+            Yt = torch.squeeze(e)
+            Ybar_t = torch.cat([o_prev,Yt],1)
+            dec_state,o_t,et = self.step(Ybar_t,dec_state,enc_hiddens,enc_hiddens_proj, enc_masks)
             combined_outputs.append(o_t)
             o_prev = o_t
 
@@ -324,10 +327,9 @@ class NMT(nn.Module):
 
         # e_t [5,20]
         # dec_hidden [5,3]
-        # dec_cell [5,3 ]
+        # dec_cell [5,3]
         dec_state = self.decoder(Ybar_t, dec_state)
         (dec_hidden, dec_cell) = dec_state
-
         e_t = torch.squeeze(torch.bmm(enc_hiddens_proj,torch.unsqueeze(dec_hidden, 2)),2)
 
         ### END YOUR CODE
