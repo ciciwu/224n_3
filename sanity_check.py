@@ -183,6 +183,11 @@ def question_1f_sanity_check(model, src_sents, tgt_sents, vocab):
         1].numpy())), "decoder_state[1] is incorrect: it should be:\n {} but is:\n{}".format(dec_state_target[1],
                                                                                              dec_state_pred[1])
     print("dec_state[1] Sanity Checks Passed!")
+    assert (
+        np.allclose(e_t_target.numpy(), e_t_pred.numpy())), "e_t is incorrect: it should be:\n {} but is:\n{}".format(
+        e_t_target, e_t_pred)
+    print("e_t Sanity Checks Passed!")
+
     assert (np.allclose(o_t_target.numpy(),
                         o_t_pred.numpy())), "combined_output is incorrect: it should be:\n {} but is:\n{}".format(
         o_t_target, o_t_pred)
